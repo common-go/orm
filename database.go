@@ -37,11 +37,11 @@ const asc = "ASC"
 //func Connect(dialect string, uri string) (*gorm.DB, error) {
 //	return gorm.Open(dialect, uri)
 //}
-func BuildDataSourceName(c DatabaseConfig) string {
-	if c.Provider == "postgres" {
+func BuildDataSourceName(c Config) string {
+	if c.Driver == "postgres" {
 		uri := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%d sslmode=disable", c.User, c.Database, c.Password, c.Host, c.Port)
 		return uri
-	} else if c.Provider == "mysql" {
+	} else if c.Driver == "mysql" {
 		uri := ""
 		if c.MultiStatements {
 			uri = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local&multiStatements=True", c.User, c.Password, c.Host, c.Port, c.Database)
@@ -49,10 +49,10 @@ func BuildDataSourceName(c DatabaseConfig) string {
 		}
 		uri = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local", c.User, c.Password, c.Host, c.Port, c.Database)
 		return uri
-	} else if c.Provider == "mssql" { // mssql
+	} else if c.Driver == "mssql" { // mssql
 		uri := fmt.Sprintf("sqlserver://%s:%s@%s:%d?Database=%s", c.User, c.Password, c.Host, c.Port, c.Database)
 		return uri
-	} else if c.Provider == "godror" || c.Provider == "oracle" {
+	} else if c.Driver == "godror" || c.Driver == "oracle" {
 		return fmt.Sprintf("user=\"%s\" password=\"%s\" connectString=\"%s:%d/%s\"", c.User, c.Password, c.Host, c.Port, c.Database)
 	} else { //sqlite
 		return c.Host // return sql.Open("sqlite3", c.Host)
@@ -253,7 +253,7 @@ func HandleResult(result *gorm.DB) (int64, error) {
 }
 
 // Obtain columns and values required for insert from interface
-func ExtractMapValue(db *gorm.DB,value interface{}, excludeColumns []string) (map[string]interface{}, error) {
+func ExtractMapValue(db *gorm.DB, value interface{}, excludeColumns []string) (map[string]interface{}, error) {
 	rv := reflect.ValueOf(value)
 	if rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
@@ -268,21 +268,21 @@ func ExtractMapValue(db *gorm.DB,value interface{}, excludeColumns []string) (ma
 	fields := stmt.Statement.Schema.Fields
 	for _, field := range fields {
 		// Exclude relational record because it's not directly contained in database columns
-		_, hasForeignKey  := field.TagSettings["FOREIGNKEY"]
-			if  !ContainString(excludeColumns, field.StructField.Name) && field.Schema.Relationships.Relations == nil && !hasForeignKey && !IsIgnored(field) && !field.AutoIncrement &&  !IsPrimaryAndBlankField(field) {
-				if field.HasDefaultValue && field.NotNull == false {  // isBlank
-					// If default value presents and field is empty, assign a default value
-					if val, ok := field.TagSettings["DEFAULT"]; ok {
-						attrs[field.DBName] = val
-					} else {
-						fieldValue := reflect.New(field.IndirectFieldType)
-						attrs[field.DBName] = fieldValue
-					}
+		_, hasForeignKey := field.TagSettings["FOREIGNKEY"]
+		if !ContainString(excludeColumns, field.StructField.Name) && field.Schema.Relationships.Relations == nil && !hasForeignKey && !IsIgnored(field) && !field.AutoIncrement && !IsPrimaryAndBlankField(field) {
+			if field.HasDefaultValue && field.NotNull == false { // isBlank
+				// If default value presents and field is empty, assign a default value
+				if val, ok := field.TagSettings["DEFAULT"]; ok {
+					attrs[field.DBName] = val
 				} else {
 					fieldValue := reflect.New(field.IndirectFieldType)
 					attrs[field.DBName] = fieldValue
 				}
+			} else {
+				fieldValue := reflect.New(field.IndirectFieldType)
+				attrs[field.DBName] = fieldValue
 			}
+		}
 	}
 	return attrs, nil
 }
@@ -384,7 +384,7 @@ func FindIdFields(modelType reflect.Type) []string {
 
 func FindIdColumns(modelType reflect.Type) []string {
 	numField := modelType.NumField()
-	var idFields = make([]string , 0)
+	var idFields = make([]string, 0)
 	for i := 0; i < numField; i++ {
 		field := modelType.Field(i)
 		ormTag := field.Tag.Get("gorm")
@@ -408,7 +408,6 @@ func FindIdColumns(modelType reflect.Type) []string {
 	}
 	return idFields
 }
-
 
 func BuildQueryMap(db *gorm.DB, object interface{}, onlyPrimaryKeys bool) map[string]interface{} {
 	objectValue := reflect.Indirect(reflect.ValueOf(object))
@@ -595,7 +594,8 @@ func IsIgnored(field *schema.Field) bool {
 }
 
 var namingStrategy = schema.NamingStrategy{}
-func GormToColumnName(columnName string) string{
+
+func GormToColumnName(columnName string) string {
 	return namingStrategy.ColumnName("", columnName)
 }
 
@@ -627,7 +627,7 @@ func GetColumnNameForSearch(modelType reflect.Type, sortField string) string {
 func GetSortType(sortType string) string {
 	if sortType == "-" {
 		return desc
-	} else  {
+	} else {
 		return asc
 	}
 }

@@ -16,7 +16,23 @@ type PasscodeService struct {
 	expiredAtName string
 }
 
-func NewPasscodeService(db *gorm.DB, tableName string, idName string, passcodeName string, expiredAtName string) *PasscodeService {
+func NewPasscodeService(db *gorm.DB, tableName string, options ...string) *PasscodeService {
+	var idName, passcodeName, expiredAtName string
+	if len(options) >= 1 && len(options[0]) > 0 {
+		expiredAtName = options[0]
+	} else {
+		expiredAtName = "expiredat"
+	}
+	if len(options) >= 2 && len(options[1]) > 0 {
+		idName = options[1]
+	} else {
+		idName = "id"
+	}
+	if len(options) >= 3 && len(options[2]) > 0 {
+		passcodeName = options[2]
+	} else {
+		passcodeName = "passcode"
+	}
 	return &PasscodeService{
 		db:            db,
 		tableName:     strings.ToLower(tableName),
@@ -38,11 +54,11 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 		placeholder = append(placeholder, "?")
 	}
 	mainScope.AddVar(mainScope, id)
-	mainScope.AddVar(mainScope,passcode)
-	mainScope.AddVar(mainScope,expireAt)
-	mainScope.AddVar(mainScope,id)
-	mainScope.AddVar(mainScope,passcode)
-	mainScope.AddVar(mainScope,expireAt)
+	mainScope.AddVar(mainScope, passcode)
+	mainScope.AddVar(mainScope, expireAt)
+	mainScope.AddVar(mainScope, id)
+	mainScope.AddVar(mainScope, passcode)
+	mainScope.AddVar(mainScope, expireAt)
 	var queryString string
 	if a := s.db.Dialector.Name(); a == "postgres" || a == "sqlite3" {
 		setColumns := make([]string, 0)
